@@ -1,8 +1,13 @@
 package si.trax.turnback
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.Activity
+import android.app.AlertDialog
 import android.app.TimePickerDialog
+import android.location.LocationManager
+import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
 import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
@@ -65,6 +70,14 @@ class MainActivity : Activity() {
         findViewById<TextView>(R.id.certText).text =
             "App: $packageName\nSHA-1: ${Routing.certSha1(this)?.chunked(2)?.joinToString(":") ?: "?"}"
         findViewById<Button>(R.id.btnTestKey).setOnClickListener { testGoogleKey() }
+        val searchInput = findViewById<EditText>(R.id.searchInput)
+        findViewById<Button>(R.id.btnSearch).setOnClickListener { searchPlaces(searchInput) }
+        searchInput.setOnEditorActionListener { _, actionId, _ ->
+            if (actionId == EditorInfo.IME_ACTION_SEARCH) {
+                searchPlaces(searchInput)
+                true
+            } else false
+        }
         findViewById<Button>(R.id.btnRouteMap).setOnClickListener {
             saveSettings()
             if (Prefs.hasTarget(prefs)) startActivity(Intent(this, RouteMapActivity::class.java))
@@ -248,6 +261,54 @@ class MainActivity : Activity() {
             .putBoolean(Prefs.USE_ROUTING, routingCheck.isChecked)
             .putString(Prefs.GOOGLE_KEY, googleKeyInput.text.toString().trim())
             .apply()
+    }
+
+    private fun searchPlaces(input: EditText) {
+        val q = input.text.toString().trim()
+        if (q.isEmpty()) return
+        saveSettings()
+        getSystemService(InputMethodManager::class.java)?.hideSoftInputFromWindow(input.windowToken, 0)
+        val bias = biasLocation()
+        val key = prefs.getString(Prefs.GOOGLE_KEY, null)
+        val appCtx = applicationContext
+        toast("Searching…")
+        Thread {
+            val res = PlaceSearch.search(appCtx, key, q, bias?.first, bias?.second)
+            runOnUiThread {
+                if (isDestroyed) return@runOnUiThread
+                if (res.places.isEmpty()) {
+                    toast(if (res.error != null) "Search failed: ${res.error}" else "Nothing found")
+                    return@runOnUiThread
+                }
+                if (res.error != null) toast("Google failed, using OpenStreetMap: ${res.error}")
+                val items = res.places.map { p ->
+                    if (p.address.isNotEmpty() && p.address != p.name) "${p.name}\n${p.address}" else p.name
+                }.toTypedArray()
+                AlertDialog.Builder(this)
+                    .setTitle("Results (${res.source})")
+                    .setItems(items) { _, which ->
+                        val p = res.places[which]
+                        input.setText("")
+                        setTarget(p.lat, p.lon, p.name.ifEmpty { p.address }.take(60))
+                    }
+                    .setNegativeButton("Cancel", null)
+                    .show()
+            }
+        }.start()
+    }
+
+    /** Where to bias search results: last known position, else current destination. */
+    @SuppressLint("MissingPermission")
+    private fun biasLocation(): Pair<Double, Double>? {
+        if (hasLocationPerm()) {
+            val lm = getSystemService(LOCATION_SERVICE) as LocationManager
+            for (p in listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER)) {
+                try {
+                    lm.getLastKnownLocation(p)?.let { return it.latitude to it.longitude }
+                } catch (e: Exception) { }
+            }
+        }
+        return if (Prefs.hasTarget(prefs)) Prefs.targetLat(prefs) to Prefs.targetLon(prefs) else null
     }
 
     private fun testGoogleKey() {

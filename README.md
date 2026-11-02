@@ -9,6 +9,10 @@ Set a destination (current spot, map pick, pasted coordinates, or share a place 
 - **Every 5 min after that** if you're not getting closer (with "late by X min")
 - Stops automatically when you arrive (within ~75 m), or 3 h after the deadline
 
+## Place search
+
+Search bar on the main screen: **Google Places API (New) Text Search** if a key is set (enable *Places API (New)* on the key; Text Search Pro has 5,000 free calls/month), else **OpenStreetMap Nominatim**. Results are biased to your current location.
+
 ## Map & navigation
 
 - **Map & route** screen: live position, destination marker, walking route (Google polyline if a key is set, else OSRM; dashed straight line if offline), distance/ETA/leave-by. Auto-refreshes after moving 150 m.
@@ -28,7 +32,7 @@ Routing is refreshed every 3 min or 150 m, in this order:
 
 1. Google Cloud Console → new project → attach billing (Maps Platform requires it; 10k Compute Routes Essentials calls/month free).
 2. Enable **Routes API** → Credentials → Create API key.
-3. Restrict key: *Android apps* → package `si.trax.turnback` + SHA-1 shown at the bottom of the app's settings; *API restrictions* → Routes API only.
+3. Restrict key: *Android apps* → package `si.trax.turnback` + SHA-1 shown at the bottom of the app's settings; *API restrictions* → Routes API + Places API (New).
 4. Quotas → cap requests/day (e.g. 500).
 5. Paste key in the app → **Test**.
 
