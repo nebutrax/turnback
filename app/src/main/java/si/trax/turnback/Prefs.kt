@@ -15,6 +15,7 @@ object Prefs {
     const val GOOGLE_KEY = "google_key"
     const val RUNNING = "running"
     const val STATUS = "status"
+    const val STATUS_LEVEL = "status_level"
 
     fun get(ctx: Context): SharedPreferences =
         ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE)

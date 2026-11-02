@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="BaseTheme" parent="android:Theme.Material">
-        <item name="android:colorPrimary">@color/brand</item>
+        <item name="android:colorPrimary">@color/brand_dark</item>
         <item name="android:colorPrimaryDark">@color/brand_dark</item>
-        <item name="android:colorAccent">#81C784</item>
+        <item name="android:colorAccent">@color/accent</item>
+        <item name="android:windowBackground">@color/window_bg</item>
+        <item name="android:buttonStyle">@style/TonalButton</item>
     </style>
 </resources>

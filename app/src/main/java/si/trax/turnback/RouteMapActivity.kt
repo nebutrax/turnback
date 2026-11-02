@@ -115,8 +115,8 @@ class RouteMapActivity : Activity() {
         info = TextView(this).apply {
             text = if (myLoc == null) "Location permission missing" else "Waiting for GPS…"
             textSize = 15f
-            setTextColor(0xFF111111.toInt())
-            setBackgroundColor(0xE6FFFFFF.toInt())
+            setTextColor(getColor(R.color.text_primary))
+            setBackgroundColor(surface(0xEE))
             setPadding(dp(14), dp(10), dp(14), dp(10))
         }
         root.addView(info, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP))
@@ -124,8 +124,8 @@ class RouteMapActivity : Activity() {
         val credit = TextView(this).apply {
             text = "© OpenStreetMap contributors"
             textSize = 10f
-            setTextColor(0xFF333333.toInt())
-            setBackgroundColor(0xAAFFFFFF.toInt())
+            setTextColor(getColor(R.color.text_secondary))
+            setBackgroundColor(surface(0xB0))
             setPadding(dp(6), dp(2), dp(6), dp(2))
         }
         val creditLp = FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM or Gravity.END)
@@ -136,11 +136,11 @@ class RouteMapActivity : Activity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(8), dp(8), dp(8), dp(16))
-            setBackgroundColor(0xE6FFFFFF.toInt())
+            setBackgroundColor(surface(0xEE))
         }
         routeCheck = CheckBox(this).apply {
             text = "Route"
-            setTextColor(0xFF111111.toInt())
+            setTextColor(getColor(R.color.text_primary))
             isChecked = true
             setOnCheckedChangeListener { _, checked ->
                 routeLine.isEnabled = checked && hasRoute
@@ -238,6 +238,9 @@ class RouteMapActivity : Activity() {
     }
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
+
+    /** Card colour with the given alpha (0–255). */
+    private fun surface(alpha: Int) = (getColor(R.color.card_bg) and 0x00FFFFFF) or (alpha shl 24)
 
     override fun onResume() {
         super.onResume()

@@ -2,7 +2,9 @@
 
 Android app that tells you **when to start walking back** so you reach a place by a set time.
 
-Set a destination (current spot, map pick, pasted coordinates, or share a place from Google Maps), pick the "back by" time and a buffer, tap **Start**. A foreground service watches your GPS, estimates walking time back and alerts you:
+Main screen has three cards — **Destination** (search box that also takes coordinates / Maps links, *I'm here*, *Pick on map*), **Be back by** (tap the time; −/+ sets how early to arrive) — and a **Start tracking** button; *Map & route* and *Navigate* sit below. Walking speed, street routing, the Google key, battery settings and tips live under the ⚙ Settings screen. While tracking, a status card at the top turns green / amber / red as the leave time approaches.
+
+You can also share a place from Google Maps straight into TurnBack. Then tap **Start**. A foreground service watches your GPS, estimates walking time back and alerts you:
 
 - **10 min before** you need to leave — "Head back soon"
 - **When it's time to leave** — alarm-style alert
@@ -19,7 +21,7 @@ Google flow is free-tier friendly: autocomplete runs in a session that ends with
 
 - **Map & route** screen: live position, destination marker, walking route (Google polyline if a key is set, else OSRM; dashed straight line if offline), distance/ETA/leave-by. Auto-refreshes after moving 150 m.
 - **Navigate** hands off to Google Maps walking navigation (`google.navigation:q=…&mode=w`), falling back to the Maps web URL.
-- Ongoing notification has **Stop / Map / Navigate**; head-back alerts have **Navigate / Map**.
+- Ongoing notification has **Stop / Map / Navigate** and is phone-only; head-back alerts have **Navigate / Map** and are mirrored to a paired watch (Wear OS / Galaxy Watch).
 
 ## Walking-time estimate
 
@@ -34,9 +36,9 @@ Routing is refreshed every 3 min or 150 m, in this order:
 
 1. Google Cloud Console → new project → attach billing (Maps Platform requires it; 10k Compute Routes Essentials calls/month free).
 2. Enable **Routes API** → Credentials → Create API key.
-3. Restrict key: *Android apps* → package `si.trax.turnback` + SHA-1 shown at the bottom of the app's settings; *API restrictions* → Routes API + Places API (New).
+3. Restrict key: *Android apps* → package `si.trax.turnback` + SHA-1 shown in the app's Settings screen; *API restrictions* → Routes API + Places API (New).
 4. Quotas → cap requests/day (e.g. 500).
-5. Paste key in the app → **Test**.
+5. Paste key in Settings → **Test key**.
 
 Leave time = deadline − ETA − buffer.
 

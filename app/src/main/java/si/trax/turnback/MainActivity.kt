@@ -5,43 +5,50 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.AlertDialog
 import android.app.TimePickerDialog
-import android.location.LocationManager
-import android.view.inputmethod.EditorInfo
-import android.view.inputmethod.InputMethodManager
 import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
+import android.content.res.ColorStateList
+import android.location.LocationManager
 import android.os.Build
 import android.os.Bundle
-import android.provider.Settings
 import android.text.format.DateFormat
 import android.text.format.DateUtils
+import android.view.Menu
+import android.view.MenuItem
 import android.view.View
+import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
 import android.widget.Button
-import android.widget.CheckBox
 import android.widget.EditText
+import android.widget.ImageButton
 import android.widget.TextView
 import android.widget.Toast
 import java.util.Calendar
 import java.util.Locale
+import java.util.UUID
 
 class MainActivity : Activity() {
 
     companion object {
         private const val REQ_MAP = 10
         private const val REQ_PERMS = 11
+        private const val BUFFER_STEP = 5
     }
 
     private lateinit var prefs: SharedPreferences
-    private lateinit var statusText: TextView
-    private lateinit var targetText: TextView
-    private lateinit var coordsInput: EditText
-    private lateinit var btnDeadline: Button
-    private lateinit var bufferInput: EditText
-    private lateinit var speedInput: EditText
-    private lateinit var routingCheck: CheckBox
-    private lateinit var googleKeyInput: EditText
+    private lateinit var statusCard: View
+    private lateinit var statusTitle: TextView
+    private lateinit var statusDetail: TextView
+    private lateinit var searchInput: EditText
+    private lateinit var targetLabel: TextView
+    private lateinit var targetCoords: TextView
+    private lateinit var deadlineText: TextView
+    private lateinit var deadlineSub: TextView
+    private lateinit var bufferText: TextView
     private lateinit var btnStartStop: Button
+    private lateinit var btnRouteMap: Button
+    private lateinit var btnNavigate: Button
 
     private val prefListener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
         runOnUiThread { refresh() }
@@ -53,62 +60,60 @@ class MainActivity : Activity() {
         prefs = Prefs.get(this)
         TrackService.createChannels(this)
 
-        statusText = findViewById(R.id.statusText)
-        targetText = findViewById(R.id.targetText)
-        coordsInput = findViewById(R.id.coordsInput)
-        btnDeadline = findViewById(R.id.btnDeadline)
-        bufferInput = findViewById(R.id.bufferInput)
-        speedInput = findViewById(R.id.speedInput)
-        routingCheck = findViewById(R.id.routingCheck)
+        statusCard = findViewById(R.id.statusCard)
+        statusTitle = findViewById(R.id.statusTitle)
+        statusDetail = findViewById(R.id.statusDetail)
+        searchInput = findViewById(R.id.searchInput)
+        targetLabel = findViewById(R.id.targetLabel)
+        targetCoords = findViewById(R.id.targetCoords)
+        deadlineText = findViewById(R.id.deadlineText)
+        deadlineSub = findViewById(R.id.deadlineSub)
+        bufferText = findViewById(R.id.bufferText)
         btnStartStop = findViewById(R.id.btnStartStop)
+        btnRouteMap = findViewById(R.id.btnRouteMap)
+        btnNavigate = findViewById(R.id.btnNavigate)
 
-        bufferInput.setText(prefs.getInt(Prefs.BUFFER_MIN, 10).toString())
-        speedInput.setText(String.format(Locale.US, "%.1f", prefs.getFloat(Prefs.SPEED_KMH, 4.5f)))
-        routingCheck.isChecked = prefs.getBoolean(Prefs.USE_ROUTING, true)
-        googleKeyInput = findViewById(R.id.googleKeyInput)
-        googleKeyInput.setText(prefs.getString(Prefs.GOOGLE_KEY, ""))
-        findViewById<TextView>(R.id.certText).text =
-            "App: $packageName\nSHA-1: ${Routing.certSha1(this)?.chunked(2)?.joinToString(":") ?: "?"}"
-        findViewById<Button>(R.id.btnTestKey).setOnClickListener { testGoogleKey() }
-        val searchInput = findViewById<EditText>(R.id.searchInput)
-        findViewById<Button>(R.id.btnSearch).setOnClickListener { searchPlaces(searchInput) }
+        findViewById<ImageButton>(R.id.btnSearch).setOnClickListener { submitSearch() }
         searchInput.setOnEditorActionListener { _, actionId, _ ->
             if (actionId == EditorInfo.IME_ACTION_SEARCH) {
-                searchPlaces(searchInput)
+                submitSearch()
                 true
             } else false
         }
-        findViewById<Button>(R.id.btnRouteMap).setOnClickListener {
-            saveSettings()
-            if (Prefs.hasTarget(prefs)) startActivity(Intent(this, RouteMapActivity::class.java))
-            else toast("Set a destination first")
-        }
-        findViewById<Button>(R.id.btnNavigate).setOnClickListener {
-            if (Prefs.hasTarget(prefs)) Nav.start(this, Prefs.targetLat(prefs), Prefs.targetLon(prefs))
-            else toast("Set a destination first")
-        }
-
         findViewById<Button>(R.id.btnHere).setOnClickListener { useCurrentLocation() }
         findViewById<Button>(R.id.btnMap).setOnClickListener { openMap() }
-        findViewById<Button>(R.id.btnSetCoords).setOnClickListener {
-            handleText(coordsInput.text.toString(), "Pinned point")
-        }
-        btnDeadline.setOnClickListener { pickDeadline() }
+        deadlineText.setOnClickListener { pickDeadline() }
+        findViewById<Button>(R.id.btnBufferMinus).setOnClickListener { changeBuffer(-BUFFER_STEP) }
+        findViewById<Button>(R.id.btnBufferPlus).setOnClickListener { changeBuffer(BUFFER_STEP) }
         btnStartStop.setOnClickListener {
             if (prefs.getBoolean(Prefs.RUNNING, false)) stopTracking() else startTracking()
         }
-        findViewById<TextView>(R.id.batteryLink).setOnClickListener {
-            try {
-                startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
-            } catch (e: Exception) {
-                toast("Not available on this phone")
-            }
+        btnRouteMap.setOnClickListener {
+            if (Prefs.hasTarget(prefs)) startActivity(Intent(this, RouteMapActivity::class.java))
+            else toast("Set a destination first")
+        }
+        btnNavigate.setOnClickListener {
+            if (Prefs.hasTarget(prefs)) Nav.start(this, Prefs.targetLat(prefs), Prefs.targetLon(prefs))
+            else toast("Set a destination first")
         }
 
         ensureDeadlineDefault()
         requestPerms()
         if (savedInstanceState == null) handleIntent(intent)
         refresh()
+    }
+
+    override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        menuInflater.inflate(R.menu.main, menu)
+        return true
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        if (item.itemId == R.id.action_settings) {
+            startActivity(Intent(this, SettingsActivity::class.java))
+            return true
+        }
+        return super.onOptionsItemSelected(item)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -124,7 +129,6 @@ class MainActivity : Activity() {
     }
 
     override fun onPause() {
-        saveSettings()
         prefs.unregisterOnSharedPreferenceChangeListener(prefListener)
         super.onPause()
     }
@@ -139,6 +143,19 @@ class MainActivity : Activity() {
             else -> null
         } ?: return
         handleText(text, "Shared place")
+    }
+
+    /** Search box: coordinates / links are used directly, anything else is a place search. */
+    private fun submitSearch() {
+        val text = searchInput.text.toString().trim()
+        if (text.isEmpty()) return
+        hideKeyboard()
+        val looksLikeLink = text.contains("http", ignoreCase = true) || text.startsWith("geo:", ignoreCase = true)
+        if (looksLikeLink || Geo.parse(text) != null) {
+            handleText(text, "Pinned point")
+        } else {
+            searchPlaces(text)
+        }
     }
 
     private fun handleText(raw: String, fallbackLabel: String) {
@@ -168,9 +185,64 @@ class MainActivity : Activity() {
         }.start()
     }
 
+    private fun searchPlaces(q: String) {
+        val bias = biasLocation()
+        val key = prefs.getString(Prefs.GOOGLE_KEY, null)
+        val appCtx = applicationContext
+        val session = UUID.randomUUID().toString()
+        toast("Searching…")
+        Thread {
+            val res = PlaceSearch.search(appCtx, key, q, bias?.first, bias?.second, session)
+            runOnUiThread {
+                if (isDestroyed) return@runOnUiThread
+                if (res.places.isEmpty()) {
+                    toast(if (res.error != null) "Search failed: ${res.error}" else "Nothing found")
+                    return@runOnUiThread
+                }
+                if (res.error != null) toast("Google failed, using OpenStreetMap: ${res.error}")
+                val items = res.places.map { p ->
+                    if (p.address.isNotEmpty() && p.address != p.name) "${p.name}\n${p.address}" else p.name
+                }.toTypedArray()
+                AlertDialog.Builder(this)
+                    .setTitle("Results · ${res.source}")
+                    .setItems(items) { _, which ->
+                        val p = res.places[which]
+                        val label = p.name.ifEmpty { p.address }.take(60)
+                        if (p.placeId == null || key.isNullOrBlank()) {
+                            setTarget(p.lat, p.lon, label)
+                        } else {
+                            Thread {
+                                val r = try { PlaceSearch.resolve(appCtx, key, p, session) } catch (e: Exception) { null }
+                                runOnUiThread {
+                                    if (r != null && !r.lat.isNaN()) setTarget(r.lat, r.lon, label)
+                                    else toast("Couldn't get location for that place")
+                                }
+                            }.start()
+                        }
+                    }
+                    .setNegativeButton("Cancel", null)
+                    .show()
+            }
+        }.start()
+    }
+
+    /** Where to bias search results: last known position, else current destination. */
+    @SuppressLint("MissingPermission")
+    private fun biasLocation(): Pair<Double, Double>? {
+        if (hasLocationPerm()) {
+            val lm = getSystemService(LOCATION_SERVICE) as LocationManager
+            for (p in listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER)) {
+                try {
+                    lm.getLastKnownLocation(p)?.let { return it.latitude to it.longitude }
+                } catch (e: Exception) { }
+            }
+        }
+        return if (Prefs.hasTarget(prefs)) Prefs.targetLat(prefs) to Prefs.targetLon(prefs) else null
+    }
+
     private fun setTarget(lat: Double, lon: Double, label: String) {
         Prefs.setTarget(prefs, lat, lon, label)
-        coordsInput.setText("")
+        searchInput.setText("")
         refresh()
         restartIfRunning()
         toast("Destination set")
@@ -209,7 +281,7 @@ class MainActivity : Activity() {
         }
     }
 
-    // ---- deadline ----
+    // ---- time ----
 
     private fun ensureDeadlineDefault() {
         val d = prefs.getLong(Prefs.DEADLINE, 0L)
@@ -250,104 +322,16 @@ class MainActivity : Activity() {
         return c.timeInMillis
     }
 
+    private fun changeBuffer(delta: Int) {
+        val b = (prefs.getInt(Prefs.BUFFER_MIN, 10) + delta).coerceIn(0, 120)
+        prefs.edit().putInt(Prefs.BUFFER_MIN, b).apply()
+        refresh()
+        restartIfRunning()
+    }
+
     // ---- tracking ----
 
-    private fun saveSettings() {
-        val buffer = bufferInput.text.toString().trim().toIntOrNull()?.coerceIn(0, 120) ?: 10
-        val speed = speedInput.text.toString().trim().replace(',', '.').toFloatOrNull()?.coerceIn(1f, 15f) ?: 4.5f
-        prefs.edit()
-            .putInt(Prefs.BUFFER_MIN, buffer)
-            .putFloat(Prefs.SPEED_KMH, speed)
-            .putBoolean(Prefs.USE_ROUTING, routingCheck.isChecked)
-            .putString(Prefs.GOOGLE_KEY, googleKeyInput.text.toString().trim())
-            .apply()
-    }
-
-    private fun searchPlaces(input: EditText) {
-        val q = input.text.toString().trim()
-        if (q.isEmpty()) return
-        saveSettings()
-        getSystemService(InputMethodManager::class.java)?.hideSoftInputFromWindow(input.windowToken, 0)
-        val bias = biasLocation()
-        val key = prefs.getString(Prefs.GOOGLE_KEY, null)
-        val appCtx = applicationContext
-        val session = java.util.UUID.randomUUID().toString()
-        toast("Searching…")
-        Thread {
-            val res = PlaceSearch.search(appCtx, key, q, bias?.first, bias?.second, session)
-            runOnUiThread {
-                if (isDestroyed) return@runOnUiThread
-                if (res.places.isEmpty()) {
-                    toast(if (res.error != null) "Search failed: ${res.error}" else "Nothing found")
-                    return@runOnUiThread
-                }
-                if (res.error != null) toast("Google failed, using OpenStreetMap: ${res.error}")
-                val items = res.places.map { p ->
-                    if (p.address.isNotEmpty() && p.address != p.name) "${p.name}\n${p.address}" else p.name
-                }.toTypedArray()
-                AlertDialog.Builder(this)
-                    .setTitle("Results (${res.source})")
-                    .setItems(items) { _, which ->
-                        val p = res.places[which]
-                        input.setText("")
-                        val label = p.name.ifEmpty { p.address }.take(60)
-                        if (p.placeId == null || key.isNullOrBlank()) {
-                            setTarget(p.lat, p.lon, label)
-                        } else {
-                            Thread {
-                                val r = try { PlaceSearch.resolve(appCtx, key, p, session) } catch (e: Exception) { null }
-                                runOnUiThread {
-                                    if (r != null && !r.lat.isNaN()) setTarget(r.lat, r.lon, label)
-                                    else toast("Couldn't get location for that place")
-                                }
-                            }.start()
-                        }
-                    }
-                    .setNegativeButton("Cancel", null)
-                    .show()
-            }
-        }.start()
-    }
-
-    /** Where to bias search results: last known position, else current destination. */
-    @SuppressLint("MissingPermission")
-    private fun biasLocation(): Pair<Double, Double>? {
-        if (hasLocationPerm()) {
-            val lm = getSystemService(LOCATION_SERVICE) as LocationManager
-            for (p in listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER)) {
-                try {
-                    lm.getLastKnownLocation(p)?.let { return it.latitude to it.longitude }
-                } catch (e: Exception) { }
-            }
-        }
-        return if (Prefs.hasTarget(prefs)) Prefs.targetLat(prefs) to Prefs.targetLon(prefs) else null
-    }
-
-    private fun testGoogleKey() {
-        saveSettings()
-        val key = prefs.getString(Prefs.GOOGLE_KEY, null)
-        if (key.isNullOrBlank()) {
-            toast("Enter a key first")
-            return
-        }
-        // Test route: from destination (or Ljubljana centre) ~500 m north.
-        val lat = if (Prefs.hasTarget(prefs)) Prefs.targetLat(prefs) else 46.0569
-        val lon = if (Prefs.hasTarget(prefs)) Prefs.targetLon(prefs) else 14.5058
-        toast("Testing…")
-        val appCtx = applicationContext
-        Thread {
-            val r = Routing.walk(appCtx, key, lat, lon, lat + 0.0045, lon)
-            val msg = when {
-                r == null -> "Google failed: ${Routing.lastGoogleError ?: "unknown"}"
-                r.source != "Google" -> "Google failed (${Routing.lastGoogleError ?: "unknown"}), OSRM fallback works"
-                else -> "Google OK: ${Fmt.dist(r.distanceM)}, ${Fmt.mins(((r.durationS ?: 0.0) * 1000).toLong())}"
-            }
-            runOnUiThread { Toast.makeText(this, msg, Toast.LENGTH_LONG).show() }
-        }.start()
-    }
-
     private fun startTracking() {
-        saveSettings()
         if (!Prefs.hasTarget(prefs)) {
             toast("Set a destination first")
             return
@@ -361,13 +345,12 @@ class MainActivity : Activity() {
             toast("Location permission needed")
             return
         }
-        prefs.edit().putString(Prefs.STATUS, "Starting…").apply()
+        prefs.edit().putString(Prefs.STATUS, "Starting…").putInt(Prefs.STATUS_LEVEL, TrackService.LEVEL_IDLE).apply()
         startForegroundService(Intent(this, TrackService::class.java).setAction(TrackService.ACTION_START))
     }
 
     private fun restartIfRunning() {
         if (prefs.getBoolean(Prefs.RUNNING, false)) {
-            saveSettings()
             startForegroundService(Intent(this, TrackService::class.java).setAction(TrackService.ACTION_START))
         }
     }
@@ -379,24 +362,54 @@ class MainActivity : Activity() {
     // ---- UI ----
 
     private fun refresh() {
-        targetText.text = if (Prefs.hasTarget(prefs)) {
-            val label = prefs.getString(Prefs.TARGET_LABEL, null) ?: "Destination"
-            String.format(Locale.US, "%s\n%.5f, %.5f", label, Prefs.targetLat(prefs), Prefs.targetLon(prefs))
+        val hasTarget = Prefs.hasTarget(prefs)
+        if (hasTarget) {
+            targetLabel.text = prefs.getString(Prefs.TARGET_LABEL, null) ?: "Destination"
+            targetLabel.setTextColor(getColor(R.color.text_primary))
+            targetCoords.text = String.format(Locale.US, "%.5f, %.5f", Prefs.targetLat(prefs), Prefs.targetLon(prefs))
+            targetCoords.visibility = View.VISIBLE
         } else {
-            "Not set"
+            targetLabel.text = "No destination yet"
+            targetLabel.setTextColor(getColor(R.color.text_secondary))
+            targetCoords.visibility = View.GONE
         }
+
         val d = prefs.getLong(Prefs.DEADLINE, 0L)
-        val day = if (d > 0 && !DateUtils.isToday(d)) " (tomorrow)" else ""
-        btnDeadline.text = "Back by ${Fmt.time(this, d)}$day"
+        deadlineText.text = Fmt.time(this, d)
+        deadlineSub.text = if (d > 0 && !DateUtils.isToday(d)) "tomorrow · tap to change" else "tap to change"
+
+        val b = prefs.getInt(Prefs.BUFFER_MIN, 10)
+        bufferText.text = if (b == 0) "Arrive right on time" else "Arrive $b min early"
+
         val running = prefs.getBoolean(Prefs.RUNNING, false)
-        btnStartStop.text = if (running) "Stop" else "Start"
-        val s = prefs.getString(Prefs.STATUS, null)
-        if (s.isNullOrEmpty()) {
-            statusText.visibility = View.GONE
-        } else {
-            statusText.visibility = View.VISIBLE
-            statusText.text = s
+        btnStartStop.text = if (running) "Stop tracking" else "Start tracking"
+        for (v in listOf(btnRouteMap, btnNavigate)) {
+            v.isEnabled = hasTarget
+            v.alpha = if (hasTarget) 1f else 0.45f
         }
+
+        val s = prefs.getString(Prefs.STATUS, null)
+        if (s.isNullOrBlank()) {
+            statusCard.visibility = View.GONE
+        } else {
+            val lines = s.lines()
+            statusTitle.text = lines.first()
+            val detail = lines.drop(1).joinToString("\n").trim()
+            statusDetail.text = detail
+            statusDetail.visibility = if (detail.isEmpty()) View.GONE else View.VISIBLE
+            val tint = when (prefs.getInt(Prefs.STATUS_LEVEL, TrackService.LEVEL_IDLE)) {
+                TrackService.LEVEL_OK -> R.color.status_ok
+                TrackService.LEVEL_SOON -> R.color.status_soon
+                TrackService.LEVEL_GO -> R.color.status_go
+                else -> R.color.status_idle
+            }
+            statusCard.backgroundTintList = ColorStateList.valueOf(getColor(tint))
+            statusCard.visibility = View.VISIBLE
+        }
+    }
+
+    private fun hideKeyboard() {
+        getSystemService(InputMethodManager::class.java)?.hideSoftInputFromWindow(searchInput.windowToken, 0)
     }
 
     private fun hasLocationPerm() =

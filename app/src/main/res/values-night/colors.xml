@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="brand">#388E3C</color>
+    <color name="accent">#8BD08F</color>
+
+    <color name="window_bg">#101311</color>
+    <color name="card_bg">#1B1F1C</color>
+    <color name="card_stroke">#2B312C</color>
+    <color name="field_bg">#262B27</color>
+    <color name="tonal_bg">#23382A</color>
+
+    <color name="text_primary">#ECEEEC</color>
+    <color name="text_secondary">#9BA39C</color>
+
+    <color name="status_idle">#1B1F1C</color>
+    <color name="status_ok">#1D3A23</color>
+    <color name="status_soon">#4A3A10</color>
+    <color name="status_go">#52221B</color>
+</resources>

@@ -71,8 +71,8 @@ class MapPickerActivity : Activity() {
         val credit = TextView(this).apply {
             text = "© OpenStreetMap contributors"
             textSize = 10f
-            setTextColor(0xFF333333.toInt())
-            setBackgroundColor(0xAAFFFFFF.toInt())
+            setTextColor(getColor(R.color.text_secondary))
+            setBackgroundColor(surface(0xB0))
             setPadding(dp(6), dp(2), dp(6), dp(2))
         }
         root.addView(
@@ -83,7 +83,7 @@ class MapPickerActivity : Activity() {
         val bar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding(dp(12), dp(8), dp(12), dp(16))
-            setBackgroundColor(0xCCFFFFFF.toInt())
+            setBackgroundColor(surface(0xEE))
         }
         val me = Button(this).apply {
             text = "My location"
@@ -124,6 +124,9 @@ class MapPickerActivity : Activity() {
     }
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
+
+    /** Card colour with the given alpha (0–255). */
+    private fun surface(alpha: Int) = (getColor(R.color.card_bg) and 0x00FFFFFF) or (alpha shl 24)
 
     override fun onResume() {
         super.onResume()

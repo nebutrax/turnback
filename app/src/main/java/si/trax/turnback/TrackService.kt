@@ -44,6 +44,10 @@ class TrackService : Service(), LocationListener {
         /** Approximate walking speed Google's WALK durations assume; used to scale to the user's pace. */
         private const val GOOGLE_KMH = 5.0
         private const val AUTO_STOP_AFTER_DEADLINE_MS = 3 * 3600_000L
+        const val LEVEL_IDLE = 0
+        const val LEVEL_OK = 1
+        const val LEVEL_SOON = 2
+        const val LEVEL_GO = 3
 
         fun createChannels(ctx: Context) {
             val nm = ctx.getSystemService(NotificationManager::class.java)
@@ -209,7 +213,7 @@ class TrackService : Service(), LocationListener {
             val t = "Waiting for GPS…"
             val x = "Back by ${Fmt.time(this, deadline)}"
             updateOngoing(t, x)
-            status("$t\n$x")
+            status("$t\n$x", LEVEL_IDLE)
             return
         }
 
@@ -225,7 +229,7 @@ class TrackService : Service(), LocationListener {
                 val t = "At destination — go explore"
                 val x = "Back by ${Fmt.time(this, deadline)}"
                 updateOngoing(t, x)
-                status("$t\n$x")
+                status("$t\n$x", LEVEL_OK)
             }
             return
         }
@@ -245,12 +249,15 @@ class TrackService : Service(), LocationListener {
         val text = "${Fmt.dist(walkM)} · ${Fmt.mins(etaMs)} walk · back by ${Fmt.time(this, deadline)}"
 
         val title: String
+        val level: Int
         when {
             untilLeave > PREWARN_MS -> {
                 title = "Leave by ${Fmt.time(this, leaveAt)} (in ${Fmt.mins(untilLeave)})"
+                level = LEVEL_OK
             }
             untilLeave > 0 -> {
                 title = "Leave in ${Fmt.mins(untilLeave)} (${Fmt.time(this, leaveAt)})"
+                level = LEVEL_SOON
                 if (!preWarned) {
                     preWarned = true
                     alert("Head back soon", "Leave in ${Fmt.mins(untilLeave)}. $text", loud = true)
@@ -258,6 +265,7 @@ class TrackService : Service(), LocationListener {
             }
             else -> {
                 title = if (lateBy > 0) "Late by ${Fmt.mins(lateBy)} — go now!" else "Time to head back!"
+                level = LEVEL_GO
                 if (goAlertAt == 0L) {
                     alert(title, text, loud = true)
                     goAlertAt = now
@@ -272,8 +280,7 @@ class TrackService : Service(), LocationListener {
         }
         updateOngoing(title, text)
         val gErr = if (!p.getString(Prefs.GOOGLE_KEY, null).isNullOrBlank()) Routing.lastGoogleError else null
-        val src = "Route: $routeSource" + (if (gErr != null) "\nGoogle: $gErr" else "")
-        status("$title\n$text\n$src")
+        status("$title\n$text · via $routeSource" + (if (gErr != null) "\nGoogle: $gErr" else ""), level)
     }
 
     private fun maybeRoute(
@@ -308,8 +315,8 @@ class TrackService : Service(), LocationListener {
         }
     }
 
-    private fun status(s: String) {
-        Prefs.get(this).edit().putString(Prefs.STATUS, s).apply()
+    private fun status(s: String, level: Int) {
+        Prefs.get(this).edit().putString(Prefs.STATUS, s).putInt(Prefs.STATUS_LEVEL, level).apply()
     }
 
     private fun openIntent(): PendingIntent = PendingIntent.getActivity(
@@ -351,6 +358,7 @@ class TrackService : Service(), LocationListener {
             .setStyle(Notification.BigTextStyle().bigText(text))
             .setOngoing(true)
             .setOnlyAlertOnce(true)
+            .setLocalOnly(true)
             .setShowWhen(false)
             .setContentIntent(openIntent())
             .setCategory(Notification.CATEGORY_NAVIGATION)
@@ -399,6 +407,7 @@ class TrackService : Service(), LocationListener {
         Prefs.get(this).edit()
             .putBoolean(Prefs.RUNNING, false)
             .putString(Prefs.STATUS, msg)
+            .putInt(Prefs.STATUS_LEVEL, LEVEL_IDLE)
             .apply()
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()

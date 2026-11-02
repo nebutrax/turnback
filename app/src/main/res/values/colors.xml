@@ -1,7 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- brand -->
     <color name="brand">#2E7D32</color>
     <color name="brand_dark">#1B5E20</color>
+    <color name="accent">#2E7D32</color>
+    <color name="on_brand">#FFFFFF</color>
     <color name="icon_bg">#2E7D32</color>
-    <color name="status_bg">#1F2E7D32</color>
+
+    <!-- surfaces -->
+    <color name="window_bg">#F3F5F3</color>
+    <color name="card_bg">#FFFFFF</color>
+    <color name="card_stroke">#E2E6E2</color>
+    <color name="field_bg">#EEF2EE</color>
+    <color name="tonal_bg">#E4F1E5</color>
+
+    <!-- text -->
+    <color name="text_primary">#1A1C1A</color>
+    <color name="text_secondary">#6A706A</color>
+
+    <!-- status card tints -->
+    <color name="status_idle">#FFFFFF</color>
+    <color name="status_ok">#DFF1E0</color>
+    <color name="status_soon">#FFF0CC</color>
+    <color name="status_go">#FFDAD4</color>
 </resources>
