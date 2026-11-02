@@ -197,7 +197,7 @@ class RouteMapActivity : Activity() {
     }
 
     private fun showRoute(r: RouteResult?, fLat: Double, fLon: Double) {
-        val speed = prefs.getFloat(Prefs.SPEED_KMH, 4.5f).coerceIn(1f, 15f).toDouble()
+        val speed = Prefs.effectiveSpeedKmh(prefs)
         val bufferMs = prefs.getInt(Prefs.BUFFER_MIN, 10) * 60_000L
         val deadline = prefs.getLong(Prefs.DEADLINE, 0L)
         val res = FloatArray(1)
@@ -214,7 +214,7 @@ class RouteMapActivity : Activity() {
         }
         val gErr = if (!prefs.getString(Prefs.GOOGLE_KEY, null).isNullOrBlank()) Routing.lastGoogleError else null
         info.text = buildString {
-            append("${Fmt.dist(rr.distanceM)} · ${Fmt.mins(eta)} walk · ${rr.source}\n")
+            append("${Fmt.dist(rr.distanceM)} · ${Fmt.mins(eta)} at ${String.format(java.util.Locale.getDefault(), "%.1f", speed)} km/h · ${rr.source}\n")
             append("Back by ${Fmt.time(this@RouteMapActivity, deadline)} → $leave")
             if (gErr != null) append("\nGoogle: $gErr")
         }

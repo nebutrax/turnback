@@ -16,6 +16,25 @@ object Prefs {
     const val RUNNING = "running"
     const val STATUS = "status"
     const val STATUS_LEVEL = "status_level"
+    const val AUTO_SPEED = "auto_speed"
+    const val LEARNED_KMH = "learned_kmh"      // pace learned from previous walks
+    const val MEASURED_KMH = "measured_kmh"    // pace in use during the current run
+    const val MEASURED_SEC = "measured_sec"    // seconds of walking data behind it
+
+    fun manualSpeedKmh(p: SharedPreferences): Double =
+        p.getFloat(SPEED_KMH, 4.5f).coerceIn(1f, 15f).toDouble()
+
+    /** Speed the ETA should use right now: measured while tracking, else learned, else preset. */
+    fun effectiveSpeedKmh(p: SharedPreferences): Double {
+        if (!p.getBoolean(AUTO_SPEED, true)) return manualSpeedKmh(p)
+        if (p.getBoolean(RUNNING, false) && p.getInt(MEASURED_SEC, 0) > 0) {
+            return p.getFloat(MEASURED_KMH, 0f).toDouble().takeIf { it > 0 } ?: manualSpeedKmh(p)
+        }
+        return learnedSpeedKmh(p) ?: manualSpeedKmh(p)
+    }
+
+    fun learnedSpeedKmh(p: SharedPreferences): Double? =
+        p.getFloat(LEARNED_KMH, 0f).toDouble().takeIf { it > 0 }
 
     fun get(ctx: Context): SharedPreferences =
         ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE)

@@ -20,6 +20,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import java.util.Locale
 import java.util.concurrent.Executors
 
 /**
@@ -89,6 +90,7 @@ class TrackService : Service(), LocationListener {
     private var lastRouteLoc: Location? = null
     private var routeInFlight = false
 
+    private var pace: Pace? = null
     private var preWarned = false
     private var goAlertAt = 0L
     private var nagDist = 0.0
@@ -138,6 +140,10 @@ class TrackService : Service(), LocationListener {
 
         if (!running) {
             running = true
+            val p = Prefs.get(this)
+            val prior = (Prefs.learnedSpeedKmh(p) ?: Prefs.manualSpeedKmh(p)) / 3.6
+            pace = Pace(prior)
+            p.edit().putFloat(Prefs.MEASURED_KMH, (prior * 3.6).toFloat()).putInt(Prefs.MEASURED_SEC, 0).apply()
             startLocation()
             handler.post(tick)
         } else {
@@ -178,6 +184,7 @@ class TrackService : Service(), LocationListener {
     }
 
     override fun onLocationChanged(location: Location) {
+        pace?.add(location)
         consider(location)
         evaluate()
     }
@@ -199,7 +206,10 @@ class TrackService : Service(), LocationListener {
         val label = p.getString(Prefs.TARGET_LABEL, null) ?: "destination"
         val deadline = p.getLong(Prefs.DEADLINE, 0L)
         val bufferMs = p.getInt(Prefs.BUFFER_MIN, 10) * 60_000L
-        val speedKmh = p.getFloat(Prefs.SPEED_KMH, 4.5f).coerceIn(1f, 15f).toDouble()
+        val pc = pace
+        val auto = p.getBoolean(Prefs.AUTO_SPEED, true) && pc != null
+        val measuredSec = if (auto) pc!!.measuredSeconds().toInt() else 0
+        val speedKmh = if (auto) pc!!.speedMs() * 3.6 else Prefs.manualSpeedKmh(p)
         val speedMs = speedKmh / 3.6
         val now = System.currentTimeMillis()
 
@@ -246,7 +256,8 @@ class TrackService : Service(), LocationListener {
         val leaveAt = deadline - etaMs - bufferMs
         val untilLeave = leaveAt - now
         val lateBy = now + etaMs - deadline
-        val text = "${Fmt.dist(walkM)} · ${Fmt.mins(etaMs)} walk · back by ${Fmt.time(this, deadline)}"
+        val speedTag = String.format(Locale.getDefault(), "%.1f km/h", speedKmh) + (if (measuredSec >= 60) " (GPS)" else "")
+        val text = "${Fmt.dist(walkM)} · ${Fmt.mins(etaMs)} at $speedTag · back by ${Fmt.time(this, deadline)}"
 
         val title: String
         val level: Int
@@ -280,7 +291,7 @@ class TrackService : Service(), LocationListener {
         }
         updateOngoing(title, text)
         val gErr = if (!p.getString(Prefs.GOOGLE_KEY, null).isNullOrBlank()) Routing.lastGoogleError else null
-        status("$title\n$text · via $routeSource" + (if (gErr != null) "\nGoogle: $gErr" else ""), level)
+        status("$title\n$text · via $routeSource" + (if (gErr != null) "\nGoogle: $gErr" else ""), level, speedKmh, measuredSec)
     }
 
     private fun maybeRoute(
@@ -315,8 +326,11 @@ class TrackService : Service(), LocationListener {
         }
     }
 
-    private fun status(s: String, level: Int) {
-        Prefs.get(this).edit().putString(Prefs.STATUS, s).putInt(Prefs.STATUS_LEVEL, level).apply()
+    private fun status(s: String, level: Int, speedKmh: Double? = null, measuredSec: Int? = null) {
+        val e = Prefs.get(this).edit().putString(Prefs.STATUS, s).putInt(Prefs.STATUS_LEVEL, level)
+        if (speedKmh != null) e.putFloat(Prefs.MEASURED_KMH, speedKmh.toFloat())
+        if (measuredSec != null) e.putInt(Prefs.MEASURED_SEC, measuredSec)
+        e.apply()
     }
 
     private fun openIntent(): PendingIntent = PendingIntent.getActivity(
@@ -404,11 +418,22 @@ class TrackService : Service(), LocationListener {
         running = false
         handler.removeCallbacksAndMessages(null)
         stopLocation()
-        Prefs.get(this).edit()
+        val p = Prefs.get(this)
+        val e = p.edit()
             .putBoolean(Prefs.RUNNING, false)
             .putString(Prefs.STATUS, msg)
             .putInt(Prefs.STATUS_LEVEL, LEVEL_IDLE)
-            .apply()
+        // Remember this walk's pace for next time (≥ 3 min of walking data).
+        pace?.let { pc ->
+            val m = pc.measuredMs()
+            if (m != null && pc.measuredSeconds() >= 180.0) {
+                val old = Prefs.learnedSpeedKmh(p)
+                val new = m * 3.6
+                e.putFloat(Prefs.LEARNED_KMH, (if (old == null) new else (old + new) / 2.0).toFloat())
+            }
+        }
+        pace = null
+        e.apply()
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }

@@ -26,6 +26,8 @@ Google flow is free-tier friendly: autocomplete runs in a session that ends with
 ## Walking-time estimate
 
 `ETA = route distance ÷ walking speed` (speed configurable, default 4.5 km/h).
+**Pace:** by default measured from GPS while tracking (`Pace.kt`): Doppler speed per fix (or distance/time), only 1.8–8.3 km/h samples count (standing and vehicles are ignored), last 15 min of walking kept, blended with a prior worth 90 s of data. The prior is the pace learned on previous walks (≥ 3 min of data, averaged in), else the preset. Switch it off in Settings to use the preset only.
+
 Routing is refreshed every 3 min or 150 m, in this order:
 
 1. **Google Routes API** (`computeRoutes`, `travelMode: WALK`) if a key is entered in the app. Google's duration is used and scaled to your speed setting (`× 5.0 / your km/h`).

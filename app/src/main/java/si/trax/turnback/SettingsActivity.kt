@@ -33,6 +33,12 @@ class SettingsActivity : Activity() {
 
         findViewById<Button>(R.id.btnSpeedMinus).setOnClickListener { changeSpeed(-0.5f) }
         findViewById<Button>(R.id.btnSpeedPlus).setOnClickListener { changeSpeed(0.5f) }
+        val autoSwitch = findViewById<Switch>(R.id.autoSpeedSwitch)
+        autoSwitch.isChecked = prefs.getBoolean(Prefs.AUTO_SPEED, true)
+        autoSwitch.setOnCheckedChangeListener { _, on ->
+            prefs.edit().putBoolean(Prefs.AUTO_SPEED, on).apply()
+            showSpeed()
+        }
         routingSwitch.isChecked = prefs.getBoolean(Prefs.USE_ROUTING, true)
         routingSwitch.setOnCheckedChangeListener { _, on -> prefs.edit().putBoolean(Prefs.USE_ROUTING, on).apply() }
 
@@ -76,6 +82,13 @@ class SettingsActivity : Activity() {
 
     private fun showSpeed() {
         speedText.text = String.format(Locale.getDefault(), "%.1f km/h", prefs.getFloat(Prefs.SPEED_KMH, 4.5f))
+        val learned = Prefs.learnedSpeedKmh(prefs)
+        val auto = prefs.getBoolean(Prefs.AUTO_SPEED, true)
+        findViewById<TextView>(R.id.autoSpeedCaption).text = when {
+            !auto -> "Off — the preset above is used for every ETA."
+            learned != null -> String.format(Locale.getDefault(), "Your actual pace replaces the preset while tracking. Learned so far: %.1f km/h.", learned)
+            else -> "Your actual pace replaces the preset while tracking. The preset is the starting point."
+        }
     }
 
     private fun saveKey() {
