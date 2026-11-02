@@ -136,6 +136,44 @@
             android:layout_marginTop="4dp"
             android:text="Use street routing (online, OpenStreetMap)" />
 
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Google Routes API key (optional)" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <EditText
+                android:id="@+id/googleKeyInput"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:fontFamily="monospace"
+                android:hint="Empty = use OpenStreetMap"
+                android:importantForAutofill="no"
+                android:inputType="textVisiblePassword|textNoSuggestions"
+                android:textSize="13sp" />
+
+            <Button
+                android:id="@+id/btnTestKey"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Test" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/certText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:alpha="0.7"
+            android:fontFamily="monospace"
+            android:textIsSelectable="true"
+            android:textSize="11sp" />
+
         <Button
             android:id="@+id/btnStartStop"
             android:layout_width="match_parent"

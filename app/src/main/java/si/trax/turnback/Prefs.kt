@@ -12,6 +12,7 @@ object Prefs {
     const val BUFFER_MIN = "buffer_min"
     const val SPEED_KMH = "speed_kmh"
     const val USE_ROUTING = "use_routing"
+    const val GOOGLE_KEY = "google_key"
     const val RUNNING = "running"
     const val STATUS = "status"
 

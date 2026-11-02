@@ -12,7 +12,19 @@ Set a destination (current spot, map pick, pasted coordinates, or share a place 
 ## Walking-time estimate
 
 `ETA = route distance ÷ walking speed` (speed configurable, default 4.5 km/h).
-Route distance comes from the public OSRM foot router at `routing.openstreetmap.de` (refreshed every 3 min or 150 m), falling back to straight-line × 1.3 when offline.
+Routing is refreshed every 3 min or 150 m, in this order:
+
+1. **Google Routes API** (`computeRoutes`, `travelMode: WALK`) if a key is entered in the app. Google's duration is used and scaled to your speed setting (`× 5.0 / your km/h`).
+2. **OSRM foot** at `routing.openstreetmap.de` (no key) — route distance ÷ your speed.
+3. **Straight line × 1.3** when offline.
+
+### Google key setup
+
+1. Google Cloud Console → new project → attach billing (Maps Platform requires it; 10k Compute Routes Essentials calls/month free).
+2. Enable **Routes API** → Credentials → Create API key.
+3. Restrict key: *Android apps* → package `si.trax.turnback` + SHA-1 shown at the bottom of the app's settings; *API restrictions* → Routes API only.
+4. Quotas → cap requests/day (e.g. 500).
+5. Paste key in the app → **Test**.
 
 Leave time = deadline − ETA − buffer.
 

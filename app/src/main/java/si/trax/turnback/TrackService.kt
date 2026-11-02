@@ -41,6 +41,8 @@ class TrackService : Service(), LocationListener {
         private const val PROGRESS_M = 200.0
         private const val ARRIVE_M = 75f
         private const val DETOUR_DEFAULT = 1.3
+        /** Approximate walking speed Google's WALK durations assume; used to scale to the user's pace. */
+        private const val GOOGLE_KMH = 5.0
         private const val AUTO_STOP_AFTER_DEADLINE_MS = 3 * 3600_000L
 
         fun createChannels(ctx: Context) {
@@ -77,6 +79,8 @@ class TrackService : Service(), LocationListener {
     private var leftTarget = false
 
     private var detour = DETOUR_DEFAULT
+    private var googleSecPerM: Double? = null
+    private var routeSource = "straight-line"
     private var lastRouteAt = 0L
     private var lastRouteLoc: Location? = null
     private var routeInFlight = false
@@ -124,6 +128,8 @@ class TrackService : Service(), LocationListener {
         lastRouteLoc = null
         leftTarget = false
         detour = DETOUR_DEFAULT
+        googleSecPerM = null
+        routeSource = "straight-line"
         Prefs.get(this).edit().putBoolean(Prefs.RUNNING, true).apply()
 
         if (!running) {
@@ -189,7 +195,8 @@ class TrackService : Service(), LocationListener {
         val label = p.getString(Prefs.TARGET_LABEL, null) ?: "destination"
         val deadline = p.getLong(Prefs.DEADLINE, 0L)
         val bufferMs = p.getInt(Prefs.BUFFER_MIN, 10) * 60_000L
-        val speedMs = p.getFloat(Prefs.SPEED_KMH, 4.5f).coerceIn(1f, 15f) / 3.6
+        val speedKmh = p.getFloat(Prefs.SPEED_KMH, 4.5f).coerceIn(1f, 15f).toDouble()
+        val speedMs = speedKmh / 3.6
         val now = System.currentTimeMillis()
 
         if (now > deadline + AUTO_STOP_AFTER_DEADLINE_MS) {
@@ -226,7 +233,12 @@ class TrackService : Service(), LocationListener {
         maybeRoute(p, loc, tLat, tLon, straight)
 
         val walkM = straight * detour
-        val etaMs = (walkM / speedMs * 1000.0).toLong()
+        val g = googleSecPerM
+        val etaMs = if (g != null) {
+            (straight * g * (GOOGLE_KMH / speedKmh) * 1000.0).toLong()
+        } else {
+            (walkM / speedMs * 1000.0).toLong()
+        }
         val leaveAt = deadline - etaMs - bufferMs
         val untilLeave = leaveAt - now
         val lateBy = now + etaMs - deadline
@@ -259,7 +271,9 @@ class TrackService : Service(), LocationListener {
             }
         }
         updateOngoing(title, text)
-        status("$title\n$text")
+        val gErr = if (!p.getString(Prefs.GOOGLE_KEY, null).isNullOrBlank()) Routing.lastGoogleError else null
+        val src = "Route: $routeSource" + (if (gErr != null) "\nGoogle: $gErr" else "")
+        status("$title\n$text\n$src")
     }
 
     private fun maybeRoute(
@@ -278,12 +292,16 @@ class TrackService : Service(), LocationListener {
         lastRouteLoc = loc
         val fromLat = loc.latitude
         val fromLon = loc.longitude
+        val key = p.getString(Prefs.GOOGLE_KEY, null)
+        val appCtx = applicationContext
         executor.execute {
-            val d = Routing.footDistanceMeters(fromLat, fromLon, tLat, tLon)
+            val r = Routing.walk(appCtx, key, fromLat, fromLon, tLat, tLon)
             handler.post {
                 routeInFlight = false
-                if (d != null && straight > 0) {
-                    detour = (d / straight).coerceIn(1.0, 3.0)
+                if (r != null && straight > 0) {
+                    detour = (r.distanceM / straight).coerceIn(1.0, 3.0)
+                    googleSecPerM = r.durationS?.let { it / straight }
+                    routeSource = r.source
                     evaluate()
                 }
             }

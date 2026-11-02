@@ -35,6 +35,7 @@ class MainActivity : Activity() {
     private lateinit var bufferInput: EditText
     private lateinit var speedInput: EditText
     private lateinit var routingCheck: CheckBox
+    private lateinit var googleKeyInput: EditText
     private lateinit var btnStartStop: Button
 
     private val prefListener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
@@ -59,6 +60,11 @@ class MainActivity : Activity() {
         bufferInput.setText(prefs.getInt(Prefs.BUFFER_MIN, 10).toString())
         speedInput.setText(String.format(Locale.US, "%.1f", prefs.getFloat(Prefs.SPEED_KMH, 4.5f)))
         routingCheck.isChecked = prefs.getBoolean(Prefs.USE_ROUTING, true)
+        googleKeyInput = findViewById(R.id.googleKeyInput)
+        googleKeyInput.setText(prefs.getString(Prefs.GOOGLE_KEY, ""))
+        findViewById<TextView>(R.id.certText).text =
+            "App: $packageName\nSHA-1: ${Routing.certSha1(this)?.chunked(2)?.joinToString(":") ?: "?"}"
+        findViewById<Button>(R.id.btnTestKey).setOnClickListener { testGoogleKey() }
 
         findViewById<Button>(R.id.btnHere).setOnClickListener { useCurrentLocation() }
         findViewById<Button>(R.id.btnMap).setOnClickListener { openMap() }
@@ -231,7 +237,31 @@ class MainActivity : Activity() {
             .putInt(Prefs.BUFFER_MIN, buffer)
             .putFloat(Prefs.SPEED_KMH, speed)
             .putBoolean(Prefs.USE_ROUTING, routingCheck.isChecked)
+            .putString(Prefs.GOOGLE_KEY, googleKeyInput.text.toString().trim())
             .apply()
+    }
+
+    private fun testGoogleKey() {
+        saveSettings()
+        val key = prefs.getString(Prefs.GOOGLE_KEY, null)
+        if (key.isNullOrBlank()) {
+            toast("Enter a key first")
+            return
+        }
+        // Test route: from destination (or Ljubljana centre) ~500 m north.
+        val lat = if (Prefs.hasTarget(prefs)) Prefs.targetLat(prefs) else 46.0569
+        val lon = if (Prefs.hasTarget(prefs)) Prefs.targetLon(prefs) else 14.5058
+        toast("Testing…")
+        val appCtx = applicationContext
+        Thread {
+            val r = Routing.walk(appCtx, key, lat, lon, lat + 0.0045, lon)
+            val msg = when {
+                r == null -> "Google failed: ${Routing.lastGoogleError ?: "unknown"}"
+                r.source != "Google" -> "Google failed (${Routing.lastGoogleError ?: "unknown"}), OSRM fallback works"
+                else -> "Google OK: ${Fmt.dist(r.distanceM)}, ${Fmt.mins(((r.durationS ?: 0.0) * 1000).toLong())}"
+            }
+            runOnUiThread { Toast.makeText(this, msg, Toast.LENGTH_LONG).show() }
+        }.start()
     }
 
     private fun startTracking() {
