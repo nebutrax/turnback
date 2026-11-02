@@ -181,6 +181,27 @@
             android:layout_marginTop="16dp"
             android:textSize="20sp" />
 
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btnRouteMap"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Map &amp; route" />
+
+            <Button
+                android:id="@+id/btnNavigate"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Navigate (Google Maps)" />
+        </LinearLayout>
+
         <TextView
             android:id="@+id/batteryLink"
             android:layout_width="wrap_content"

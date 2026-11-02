@@ -318,6 +318,26 @@ class TrackService : Service(), LocationListener {
         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
     )
 
+    private fun mapAction(): Notification.Action {
+        val pi = PendingIntent.getActivity(
+            this, 2,
+            Intent(this, RouteMapActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        return Notification.Action.Builder(Icon.createWithResource(this, R.drawable.ic_notif), "Map", pi).build()
+    }
+
+    private fun navAction(): Notification.Action? {
+        val p = Prefs.get(this)
+        if (!Prefs.hasTarget(p)) return null
+        val pi = PendingIntent.getActivity(
+            this, 3,
+            Nav.navIntent(Prefs.targetLat(p), Prefs.targetLon(p)),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        return Notification.Action.Builder(Icon.createWithResource(this, R.drawable.ic_notif), "Navigate", pi).build()
+    }
+
     private fun ongoing(title: String, text: String): Notification {
         val stop = PendingIntent.getService(
             this, 1,
@@ -339,6 +359,8 @@ class TrackService : Service(), LocationListener {
                     Icon.createWithResource(this, R.drawable.ic_notif), "Stop", stop
                 ).build()
             )
+            .addAction(mapAction())
+        navAction()?.let { b.addAction(it) }
         if (Build.VERSION.SDK_INT >= 31) {
             b.setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE)
         }
@@ -350,7 +372,7 @@ class TrackService : Service(), LocationListener {
     }
 
     private fun alert(title: String, text: String, loud: Boolean) {
-        val n = Notification.Builder(this, if (loud) CH_ALERT else CH_TRACK)
+        val b = Notification.Builder(this, if (loud) CH_ALERT else CH_TRACK)
             .setSmallIcon(R.drawable.ic_notif)
             .setContentTitle(title)
             .setContentText(text)
@@ -358,8 +380,11 @@ class TrackService : Service(), LocationListener {
             .setAutoCancel(true)
             .setContentIntent(openIntent())
             .setCategory(if (loud) Notification.CATEGORY_ALARM else Notification.CATEGORY_STATUS)
-            .build()
-        getSystemService(NotificationManager::class.java).notify(NOTIF_ALERT, n)
+        if (loud) {
+            navAction()?.let { b.addAction(it) }
+            b.addAction(mapAction())
+        }
+        getSystemService(NotificationManager::class.java).notify(NOTIF_ALERT, b.build())
     }
 
     private fun stopLocation() {

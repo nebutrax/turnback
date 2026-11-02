@@ -65,6 +65,15 @@ class MainActivity : Activity() {
         findViewById<TextView>(R.id.certText).text =
             "App: $packageName\nSHA-1: ${Routing.certSha1(this)?.chunked(2)?.joinToString(":") ?: "?"}"
         findViewById<Button>(R.id.btnTestKey).setOnClickListener { testGoogleKey() }
+        findViewById<Button>(R.id.btnRouteMap).setOnClickListener {
+            saveSettings()
+            if (Prefs.hasTarget(prefs)) startActivity(Intent(this, RouteMapActivity::class.java))
+            else toast("Set a destination first")
+        }
+        findViewById<Button>(R.id.btnNavigate).setOnClickListener {
+            if (Prefs.hasTarget(prefs)) Nav.start(this, Prefs.targetLat(prefs), Prefs.targetLon(prefs))
+            else toast("Set a destination first")
+        }
 
         findViewById<Button>(R.id.btnHere).setOnClickListener { useCurrentLocation() }
         findViewById<Button>(R.id.btnMap).setOnClickListener { openMap() }

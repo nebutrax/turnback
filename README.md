@@ -9,6 +9,12 @@ Set a destination (current spot, map pick, pasted coordinates, or share a place 
 - **Every 5 min after that** if you're not getting closer (with "late by X min")
 - Stops automatically when you arrive (within ~75 m), or 3 h after the deadline
 
+## Map & navigation
+
+- **Map & route** screen: live position, destination marker, walking route (Google polyline if a key is set, else OSRM; dashed straight line if offline), distance/ETA/leave-by. Auto-refreshes after moving 150 m.
+- **Navigate** hands off to Google Maps walking navigation (`google.navigation:q=…&mode=w`), falling back to the Maps web URL.
+- Ongoing notification has **Stop / Map / Navigate**; head-back alerts have **Navigate / Map**.
+
 ## Walking-time estimate
 
 `ETA = route distance ÷ walking speed` (speed configurable, default 4.5 km/h).

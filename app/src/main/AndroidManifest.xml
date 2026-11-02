@@ -47,6 +47,11 @@
             android:exported="false"
             android:label="Pick destination" />
 
+        <activity
+            android:name=".RouteMapActivity"
+            android:exported="false"
+            android:label="Route back" />
+
         <service
             android:name=".TrackService"
             android:exported="false"
