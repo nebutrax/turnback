@@ -11,7 +11,9 @@ Set a destination (current spot, map pick, pasted coordinates, or share a place 
 
 ## Place search
 
-Search bar on the main screen: **Google Places API (New) Text Search** if a key is set (enable *Places API (New)* on the key; Text Search Pro has 5,000 free calls/month), else **OpenStreetMap Nominatim**. Results are biased to your current location.
+Search bar on the main screen: **Google Places Autocomplete (New)** if a key is set, else **OpenStreetMap Nominatim**. Results are biased to your current location.
+
+Google flow is free-tier friendly: autocomplete runs in a session that ends with one Place Details call requesting only `location` (Autocomplete Session Usage: unlimited free; Place Details Essentials: 10,000 free/month). Enable *Places API (New)* on the key.
 
 ## Map & navigation
 

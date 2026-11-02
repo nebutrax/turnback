@@ -271,9 +271,10 @@ class MainActivity : Activity() {
         val bias = biasLocation()
         val key = prefs.getString(Prefs.GOOGLE_KEY, null)
         val appCtx = applicationContext
+        val session = java.util.UUID.randomUUID().toString()
         toast("Searching…")
         Thread {
-            val res = PlaceSearch.search(appCtx, key, q, bias?.first, bias?.second)
+            val res = PlaceSearch.search(appCtx, key, q, bias?.first, bias?.second, session)
             runOnUiThread {
                 if (isDestroyed) return@runOnUiThread
                 if (res.places.isEmpty()) {
@@ -289,7 +290,18 @@ class MainActivity : Activity() {
                     .setItems(items) { _, which ->
                         val p = res.places[which]
                         input.setText("")
-                        setTarget(p.lat, p.lon, p.name.ifEmpty { p.address }.take(60))
+                        val label = p.name.ifEmpty { p.address }.take(60)
+                        if (p.placeId == null || key.isNullOrBlank()) {
+                            setTarget(p.lat, p.lon, label)
+                        } else {
+                            Thread {
+                                val r = try { PlaceSearch.resolve(appCtx, key, p, session) } catch (e: Exception) { null }
+                                runOnUiThread {
+                                    if (r != null && !r.lat.isNaN()) setTarget(r.lat, r.lon, label)
+                                    else toast("Couldn't get location for that place")
+                                }
+                            }.start()
+                        }
                     }
                     .setNegativeButton("Cancel", null)
                     .show()
